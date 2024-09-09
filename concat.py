@@ -1,29 +1,35 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import concat, lit, col
 
-# Initialize Spark session
-spark = SparkSession.builder.appName("ConcatColumns").getOrCreate()
+# Create Spark session
+spark = SparkSession.builder.appName("ParentChildTable").getOrCreate()
 
-# Sample DataFrame
-data = [("John", "Doe", "12345"),
-        ("Jane", "Smith", "67890")]
+# Sample parent table schema (replace with actual data)
+data = [(1, 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'aa', 'ab', 'ac')]
+columns = [f"column{i}" for i in range(30)]
 
-columns = ["FirstName", "LastName", "ID"]
+# Create DataFrame for parent table
+parent_df = spark.createDataFrame(data, columns)
 
-df = spark.createDataFrame(data, columns)
+# Configuration of child tables
+child_table_columns = {
+    "child_0": ["column0", "column1", "column2", "column3"],
+    "child_1": ["column8", "column9", "column10", "column11", "column12"],
+    # Add more child tables as needed
+}
 
-def create_composite_pk(df, col1, col2=None):
-    if col2:
-        # Concatenate columns if both are provided
-        return df.withColumn("CompositePK", concat(col(col1), lit("_"), col(col2)))
+# Function to read child table based on configuration
+def read_child_table(parent_df, child_table_name):
+    selected_columns = child_table_columns.get(child_table_name)
+    if selected_columns:
+        return parent_df.select(*selected_columns)
     else:
-        # Use the single column as PK
-        return df.withColumn("CompositePK", col(col1))
+        print(f"Child table '{child_table_name}' not found in configuration")
+        return None
 
-# Example usage with two columns
-df_with_composite_pk = create_composite_pk(df, "FirstName", "LastName")
-df_with_composite_pk.show()
+# Example usage
+child_0_df = read_child_table(parent_df, "child_0")
+child_1_df = read_child_table(parent_df, "child_1")
 
-# Example usage with one column
-df_with_single_pk = create_composite_pk(df, "ID")
-df_with_single_pk.show()
+# Show child tables
+child_0_df.show()
+child_1_df.show()
