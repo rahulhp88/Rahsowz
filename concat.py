@@ -3,12 +3,18 @@ from pyspark.sql import SparkSession
 # Create Spark session
 spark = SparkSession.builder.appName("ParentChildTable").getOrCreate()
 
-# Sample parent table schema (replace with actual data)
-data = [(1, 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'aa', 'ab', 'ac')]
-columns = [f"column{i}" for i in range(30)]
+# Configuration of BigQuery parameters (replace with actual values)
+project_id = "your_project_id"
+parent_table = "your_dataset.your_parent_table"  # BigQuery parent table
+child_table_prefix = "your_dataset.child_table_"  # Prefix for child tables in BigQuery
+bucket = "your-gcs-bucket"  # GCS bucket to use with BigQuery connector
 
-# Create DataFrame for parent table
-parent_df = spark.createDataFrame(data, columns)
+# Read parent table from BigQuery
+parent_df = spark.read \
+    .format("bigquery") \
+    .option("parentProject", project_id) \
+    .option("table", parent_table) \
+    .load()
 
 # Configuration of child tables
 child_table_columns = {
@@ -18,18 +24,20 @@ child_table_columns = {
 }
 
 # Function to read child table based on configuration
-def read_child_table(parent_df, child_table_name):
-    selected_columns = child_table_columns.get(child_table_name)
-    if selected_columns:
-        return parent_df.select(*selected_columns)
-    else:
-        print(f"Child table '{child_table_name}' not found in configuration")
-        return None
+def process_child_tables(parent_df):
+    for child_table_name, selected_columns in child_table_columns.items():
+        # Select the relevant columns for the child table
+        child_df = parent_df.select(*selected_columns)
+        
+        # Write the child table to BigQuery
+        child_table = f"{child_table_prefix}{child_table_name}"
+        child_df.write \
+            .format("bigquery") \
+            .option("parentProject", project_id) \
+            .option("table", child_table) \
+            .option("temporaryGcsBucket", bucket) \
+            .mode("overwrite") \
+            .save()
 
-# Example usage
-child_0_df = read_child_table(parent_df, "child_0")
-child_1_df = read_child_table(parent_df, "child_1")
-
-# Show child tables
-child_0_df.show()
-child_1_df.show()
+# Process all child tables
+process_child_tables(parent_df)
